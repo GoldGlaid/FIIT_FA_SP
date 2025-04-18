@@ -2,47 +2,39 @@
 #include <iomanip>
 #include <sstream>
 
-logger & logger::trace(
-    std::string const &message) &
-{
+logger &logger::trace(
+    std::string const &message) & {
     return log(message, logger::severity::trace);
 }
 
 logger &logger::debug(
-    std::string const &message) &
-{
+    std::string const &message) & {
     return log(message, logger::severity::debug);
 }
 
 logger &logger::information(
-    std::string const &message) &
-{
+    std::string const &message) & {
     return log(message, logger::severity::information);
 }
 
 logger &logger::warning(
-    std::string const &message) &
-{
+    std::string const &message) & {
     return log(message, logger::severity::warning);
 }
 
-logger & logger::error(
-    std::string const &message) &
-{
+logger &logger::error(
+    std::string const &message) & {
     return log(message, logger::severity::error);
 }
 
 logger &logger::critical(
-    std::string const &message) &
-{
+    std::string const &message) & {
     return log(message, logger::severity::critical);
 }
 
 std::string logger::severity_to_string(
-    logger::severity severity)
-{
-    switch (severity)
-    {
+    logger::severity severity) {
+    switch (severity) {
         case logger::severity::trace:
             return "TRACE";
         case logger::severity::debug:
@@ -60,8 +52,7 @@ std::string logger::severity_to_string(
     throw std::out_of_range("Invalid severity value");
 }
 
-std::string logger::current_datetime_to_string()
-{
+std::string logger::current_datetime_to_string() {
     auto time = std::time(nullptr);
 
     std::ostringstream result_stream;
@@ -70,8 +61,7 @@ std::string logger::current_datetime_to_string()
     return result_stream.str();
 }
 
-std::string logger::current_date_to_string()
-{
+std::string logger::current_date_to_string() {
     auto time = std::time(nullptr);
 
     std::ostringstream result_stream;
@@ -80,8 +70,7 @@ std::string logger::current_date_to_string()
     return result_stream.str();
 }
 
-std::string logger::current_time_to_string()
-{
+std::string logger::current_time_to_string() {
     auto time = std::time(nullptr);
 
     std::ostringstream result_stream;

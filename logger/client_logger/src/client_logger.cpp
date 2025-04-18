@@ -136,7 +136,7 @@ client_logger::refcounted_stream::refcounted_stream(const std::string &path) {
     }
 }
 
-//Конструктор refcounted_stream
+//Конструктор копирования
 client_logger::refcounted_stream::refcounted_stream(const client_logger::refcounted_stream &oth) {
     auto opened_stream = _global_streams.find(oth._stream.first);
 
@@ -183,11 +183,13 @@ client_logger::refcounted_stream::operator=(const client_logger::refcounted_stre
     return *this;
 }
 
+// Конструктор перемещения
 client_logger::refcounted_stream::refcounted_stream(client_logger::refcounted_stream &&oth) noexcept : _stream(
     std::move(oth._stream)) {
     oth._stream.second = nullptr;
 }
 
+// Оператор перемещения (move)
 client_logger::refcounted_stream &client_logger::refcounted_stream::operator=(
     client_logger::refcounted_stream &&oth) noexcept {
     if (this != &oth) {
@@ -197,6 +199,7 @@ client_logger::refcounted_stream &client_logger::refcounted_stream::operator=(
     return *this;
 }
 
+// Деструктор refcounted_stream
 client_logger::refcounted_stream::~refcounted_stream() {
     if (_stream.second != NULL) {
         auto opened_stream = _global_streams.find(_stream.first);
