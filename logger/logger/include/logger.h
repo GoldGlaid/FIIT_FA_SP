@@ -3,13 +3,9 @@
 
 #include <iostream>
 
-class logger
-{
-
+class logger {
 public:
-
-    enum class severity
-    {
+    enum class severity {
         trace,
         debug,
         information,
@@ -19,46 +15,43 @@ public:
     };
 
 public:
-
     virtual ~logger() noexcept = default;
 
 public:
-
-    virtual logger& log(
+    virtual logger &log(
         std::string const &message,
         logger::severity severity) & = 0;
 
 public:
-
-    logger& trace(
+    logger &trace(
         std::string const &message) &;
 
-    logger& debug(
+    logger &debug(
         std::string const &message) &;
 
-    logger& information(
+    logger &information(
         std::string const &message) &;
 
-    logger& warning(
+    logger &warning(
         std::string const &message) &;
 
-    logger& error(
+    logger &error(
         std::string const &message) &;
 
-    logger& critical(
+    logger &critical(
         std::string const &message) &;
-
-protected:
 
     static std::string severity_to_string(
         logger::severity severity);
+
+protected:
+
 
     static std::string current_datetime_to_string();
 
     static std::string current_date_to_string();
 
     static std::string current_time_to_string();
-
 };
 
 

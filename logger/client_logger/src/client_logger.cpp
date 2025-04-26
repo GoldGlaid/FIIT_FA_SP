@@ -156,6 +156,7 @@ client_logger::refcounted_stream::refcounted_stream(const client_logger::refcoun
     }
 }
 
+//Оператор присваивания
 client_logger::refcounted_stream &
 client_logger::refcounted_stream::operator=(const client_logger::refcounted_stream &oth) {
     if (this == &oth) return *this;

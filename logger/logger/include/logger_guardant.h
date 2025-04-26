@@ -3,16 +3,12 @@
 
 #include "logger.h"
 
-class logger_guardant
-{
-
+class logger_guardant {
 public:
-
     virtual ~logger_guardant() noexcept = default;
 
 public:
-
-    logger_guardant & log_with_guard(
+    logger_guardant &log_with_guard(
         std::string const &message,
         logger::severity severity) &;
 
@@ -35,9 +31,7 @@ public:
         std::string const &message) &;
 
 protected:
-
     inline virtual logger *get_logger() const = 0;
-
 };
 
 #endif //MATH_PRACTICE_AND_OPERATING_SYSTEMS_LOGGER_GUARDANT_H
