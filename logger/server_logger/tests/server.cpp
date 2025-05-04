@@ -21,16 +21,16 @@ server::server(uint16_t port) {
         bool console = console_str == "1";
 
         std::lock_guard lock(_mut);
-        auto it = _streams.find(pid);
+        auto pthread = _streams.find(pid);
 
-        if (it == _streams.end()) {
-            it = _streams.emplace(pid, std::unordered_map<logger::severity, std::pair<std::string, bool> >()).first;
+        if (pthread == _streams.end()) {
+            pthread = _streams.emplace(pid, std::unordered_map<logger::severity, std::pair<std::string, bool> >()).first;
         }
 
-        auto inner_it = it->second.find(sev);
+        auto inner_it = pthread->second.find(sev);
 
-        if (inner_it == it->second.end()) {
-            inner_it = it->second.emplace(sev, std::make_pair(std::string(), false)).first;
+        if (inner_it == pthread->second.end()) {
+            inner_it = pthread->second.emplace(sev, std::make_pair(std::string(), false)).first;
         }
 
         inner_it->second.first = std::move(path_str);

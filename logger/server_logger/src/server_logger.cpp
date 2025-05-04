@@ -28,7 +28,6 @@ server_logger::~server_logger() noexcept {
 }
 
 
-// TODO
 logger &server_logger::log(const std::string &text, logger::severity severity) & {
     std::string pid = std::to_string(inner_getpid());
     std::string formatted_message = make_format(text, severity);
