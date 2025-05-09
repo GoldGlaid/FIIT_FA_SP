@@ -3,7 +3,6 @@
 #include <httplib.h>
 #include <not_implemented.h>
 
-//для винды
 #ifdef _WIN32
 #include <process.h>
 #include <fstream>
@@ -15,13 +14,57 @@
 #endif
 
 
-int server_logger::os_getpid() {
-    //для винды
+int server_logger::inner_getpid() {
 #ifdef _WIN32
     return ::_getpid();
 #else
     return getpid();
 #endif
+}
+
+server_logger::~server_logger() noexcept {
+    std::string pid = std::to_string(inner_getpid());
+    auto res = _client.Get("/destroy?pid=" + pid);
+}
+
+
+// TODO
+logger &server_logger::log(const std::string &text, logger::severity severity) & {
+    std::string pid = std::to_string(inner_getpid());
+    std::string formatted_message = make_format(text, severity);
+    std::string url = "/log?pid=" + pid + "&sev=" + severity_to_string(severity) + "&message=" + formatted_message;
+    auto res = _client.Get(url);
+    std::cout << res << std::endl;
+    return *this;
+}
+
+std::string server_logger::make_format(const std::string &message, severity sev) const {
+    std::stringstream formatted_message;
+
+    for (size_t i = 0; i < _format.length(); ++i) {
+        if (_format[i] == '%' && i + 1 < _format.length()) {
+            switch (char_to_flag(_format[i + 1])) {
+                case flag::DATE:
+                    formatted_message << current_date_to_string();
+                    break;
+                case flag::TIME:
+                    formatted_message << current_time_to_string();
+                    break;
+                case flag::SEVERITY:
+                    formatted_message << severity_to_string(sev);
+                    break;
+                case flag::MESSAGE:
+                    formatted_message << message;
+                    break;
+                default:
+                    formatted_message << '%' << _format[i + 1];
+            }
+            ++i;
+        } else {
+            formatted_message << _format[i];
+        }
+    }
+    return formatted_message.str();
 }
 
 server_logger::flag server_logger::char_to_flag(char c) noexcept {
@@ -39,63 +82,18 @@ server_logger::flag server_logger::char_to_flag(char c) noexcept {
     }
 }
 
-server_logger::~server_logger() noexcept {
-    std::string pid = std::to_string(os_getpid());
-    auto res = _client.Get("/destroy?pid=" + pid);
-}
-
-
-logger &server_logger::log(const std::string &text, logger::severity severity) & {
-    std::string pid = std::to_string(os_getpid());
-    std::string formatted_message = make_format(text, severity);
-    std::string url = "/log?pid=" + pid + "&severity=" + severity_to_string(severity) + "&message=" + formatted_message;
-    auto res = _client.Get(url);
-    // std::cout << res << std::endl;
-    return *this;
-}
-
-std::string server_logger::make_format(const std::string &message, severity severity) const {
-    std::stringstream formatted_message;
-
-    for (size_t i = 0; i < _format.length(); ++i) {
-        if (_format[i] == '%' && i + 1 < _format.length()) {
-            switch (char_to_flag(_format[i + 1])) {
-                case flag::DATE:
-                    formatted_message << current_date_to_string();
-                    break;
-                case flag::TIME:
-                    formatted_message << current_time_to_string();
-                    break;
-                case flag::SEVERITY:
-                    formatted_message << severity_to_string(severity);
-                    break;
-                case flag::MESSAGE:
-                    formatted_message << message;
-                    break;
-                default:
-                    formatted_message << '%' << _format[i + 1];
-            }
-            ++i;
-        } else {
-            formatted_message << _format[i];
-        }
-    }
-    return formatted_message.str();
-}
-
-
 server_logger::server_logger(const std::string &dest,
                              const std::unordered_map<logger::severity, std::pair<std::string, bool> > &streams,
                              std::string format) : _client(dest), _streams(streams), _format(std::move(format)) {
-
-    const std::string pid = std::to_string(os_getpid());
-    for (const auto &[severity, stream_info]: streams) {
-
-        auto url = "/init?pid=" + pid + "&severity=" + severity_to_string(severity) + "&path=" + stream_info.first +
-                   "&console=" +
+    std::string pid = std::to_string(inner_getpid());
+    for (const auto &[sev, stream_info]: streams) {
+        auto url = "/init?pid=" + pid + "&sev=" + severity_to_string(sev) + "&path=" + stream_info.first + "&console=" +
                    std::to_string(+stream_info.second);
-
         auto res = _client.Get(url);
+
+        if (!res || res->status != 204) {
+            throw std::runtime_error("Failed to initialize logging for severity: " + severity_to_string(sev));
+        }
     }
 }
 

@@ -54,12 +54,12 @@ logger_builder &server_logger_builder::transform_with_configuration(std::string 
                 std::string type = stream_item["type"];
                 if (type == "file" && stream_item.contains("path") && stream_item.contains("severities")) {
                     std::string path = stream_item["path"];
-                    for (auto &severity: stream_item["severities"]) {
-                        add_file_stream(path, string_to_severity(severity.get<std::string>()));
+                    for (auto &sev: stream_item["severities"]) {
+                        add_file_stream(path, string_to_severity(sev.get<std::string>()));
                     }
                 } else if (type == "console" && stream_item.contains("severities")) {
-                    for (auto &severity: stream_item["severities"]) {
-                        add_console_stream(string_to_severity(severity.get<std::string>()));
+                    for (auto &sev: stream_item["severities"]) {
+                        add_console_stream(string_to_severity(sev.get<std::string>()));
                     }
                 }
             }

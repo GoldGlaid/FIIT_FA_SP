@@ -2,7 +2,6 @@
 
 #include <not_implemented.h>
 
-//Почему 2 **
 inline logger *allocator_boundary_tags::get_logger() const {
     if (_trusted_memory == nullptr) return nullptr;
 
@@ -412,25 +411,34 @@ void *allocator_boundary_tags::boundary_iterator::get_ptr() const noexcept {
 
 void *allocator_boundary_tags::allocate_first_fit(size_t size) {
     std::lock_guard<std::mutex> guard(get_mutex());
-    const size_t total_size = size + occupied_block_metadata_size;
+    const size_t user_block_size = size + occupied_block_metadata_size;
 
-    size_t allocator_size = *reinterpret_cast<size_t *>(
-        static_cast<char *>(_trusted_memory) + sizeof(logger *) + sizeof(memory_resource *) +
+    size_t user_data_size = *reinterpret_cast<size_t *>(
+        static_cast<char *>(_trusted_memory) +
+        sizeof(logger *) +
+        sizeof(memory_resource *) +
         sizeof(allocator_with_fit_mode::fit_mode));
 
-    char *heap_start = static_cast<char *>(_trusted_memory) + allocator_metadata_size;
-    char *heap_end = heap_start + allocator_size;
-    void **first_block_ptr = reinterpret_cast<void **>(heap_start - sizeof(void *));
+    char *end_metadata_alloc = static_cast<char *>(_trusted_memory) + allocator_metadata_size;
+    char *end_userdata = end_metadata_alloc + user_data_size;
+
+    void **first_block_ptr = reinterpret_cast<void **>(end_metadata_alloc - sizeof(void *));
+
+    //если ничего не аллоцировали
     if (!*first_block_ptr) {
-        if (heap_end - heap_start >= total_size)
+        if (end_userdata - end_metadata_alloc >= user_block_size)
             return allocate_new_block(
-                heap_start, size, first_block_ptr, heap_end - heap_start);
+                end_metadata_alloc, size, first_block_ptr, end_userdata - end_metadata_alloc);
         return nullptr;
     }
 
-    size_t front_hole = static_cast<char *>(*first_block_ptr) - heap_start;
-    if (front_hole >= total_size)
-        return allocate_in_hole(heap_start, size, first_block_ptr, nullptr, *first_block_ptr,
+    size_t front_hole = static_cast<char *>(*first_block_ptr) - end_metadata_alloc;
+    if (front_hole >= user_block_size)
+        return allocate_in_hole(end_metadata_alloc,
+                                size,
+                                first_block_ptr,
+                                nullptr,
+                                *first_block_ptr,
                                 front_hole);
 
     void *current = *first_block_ptr;
@@ -440,15 +448,15 @@ void *allocator_boundary_tags::allocate_first_fit(size_t size) {
         char *current_end = static_cast<char *>(current) + occupied_block_metadata_size + current_size;
 
         if (!next) {
-            size_t end_hole = heap_end - current_end;
-            if (end_hole >= total_size)
-                return allocate_in_hole(current_end, size, first_block_ptr, current, nullptr,
-                                        end_hole);
-            break;
+            // Если это последний блок в цепочке
+            size_t end_hole = end_userdata - current_end; // Вычисляем свободное место в конце
+            if (end_hole >= user_block_size) // Если места достаточно
+                return allocate_in_hole(current_end, size, first_block_ptr, current, nullptr, end_hole);
+            break; // Если места недостаточно - выходим из цикла
         }
 
         size_t middle_hole = static_cast<char *>(next) - current_end;
-        if (middle_hole >= total_size)
+        if (middle_hole >= user_block_size)
             return allocate_in_hole(current_end, size, first_block_ptr, current, next,
                                     middle_hole);
 
@@ -518,6 +526,7 @@ void *allocator_boundary_tags::allocate_best_fit(size_t size) {
 
 void *allocator_boundary_tags::allocate_worst_fit(size_t size) {
     std::lock_guard<std::mutex> guard(get_mutex());
+
     const size_t total_size = size + occupied_block_metadata_size;
     size_t allocator_size = *reinterpret_cast<size_t *>(static_cast<char *>(_trusted_memory) +
                                                         sizeof(logger *) +
@@ -573,7 +582,7 @@ void *allocator_boundary_tags::allocate_worst_fit(size_t size) {
 void *allocator_boundary_tags::allocate_new_block(char *address, size_t size, void **first_block_ptr,
                                                   size_t size_free) {
     if (size_free - size - occupied_block_metadata_size < occupied_block_metadata_size) {
-        size = size_free - size - occupied_block_metadata_size;
+        size += size_free - size - occupied_block_metadata_size;
     }
 
     *reinterpret_cast<size_t *>(address) = size;

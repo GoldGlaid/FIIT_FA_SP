@@ -236,51 +236,65 @@ big_int &big_int::operator>>=(size_t shift) & {
     return *this;
 }
 
+// Структура для хранения 16-битных половинок 32-битного числа
+struct Split32 {
+    uint16_t lo; // Младшие 16 бит (bits 0-15)
+    uint16_t hi; // Старшие 16 бит (bits 16-31)
+};
+
+// Функция для разделения 32-битного числа на половинки
+inline Split32 split(uint32_t value) {
+    return Split32{
+        .lo = static_cast<uint16_t>(value & 0xFFFF), // Младшая часть
+        .hi = static_cast<uint16_t>((value >> 16) & 0xFFFF) // Старшая часть
+    };
+}
+
 big_int &big_int::plus_assign(const big_int &other, size_t shift) & {
-    // Пример: this = [5] (знак +), other = [3] (знак +), shift = 0
+    if (other._digits.empty()) return *this;
 
-    if (is_zero(other._digits)) return *this;
-    // other не ноль → пропускаем
-
-    if (_sign == other._sign) {  // Оба знака "+" → сложение
-        size_t max_size = std::max(_digits.size(), other._digits.size() + shift);
-        // max_size = max(1, 1+0) = 1
-
-        _digits.resize(max_size, 0);  // this = [5] (размер уже 1)
-
-        unsigned long long carry = 0;  // carry = 0
-
-        for (size_t i = 0; i < max_size; ++i) {  // i=0
-            unsigned long long sum = carry;  // sum = 0
-            //Пока не больше ячеек
-            if (i < _digits.size()) {  // i=0 < 1 → true
-                sum += _digits[i];     // sum = 0 + 5 = 5
-            }
-
-            if (i >= shift && (i - shift) < other._digits.size()) {  // 0>=0 и 0<1 → true
-                sum += other._digits[i - shift];  // sum = 5 + 3 = 8
-            }
-            // если сумма не вместилась в баззу
-            _digits[i] = static_cast<unsigned int>(sum % BASE);  // [8] (BASE=256)
-            // запоминаем кол - во десятков и т д ложим в следующий разряд в следующем цикле
-            carry = sum / BASE;  // carry = 0
-        }
-        //если остался остаток на последнем i
-        if (carry > 0) {  // carry=0 → пропускаем
-            _digits.push_back(static_cast<unsigned int>(carry));
-        }
-    } else {
+    // Если знаки разные, используем вычитание
+    if (_sign != other._sign) {
         big_int temp(other);
-        temp._sign = _sign;
-        minus_assign(temp, shift);
+        temp._sign = _sign; // Меняем знак для вычитания
+        return minus_assign(temp, shift);
+    }
+
+    // считаем макс размер (который может быть получен) и увеличиваем _digits
+    size_t max_size = std::max(_digits.size(), other._digits.size() + shift);
+    _digits.resize(max_size, 0);
+
+    uint16_t carry = 0;
+    for (size_t i = 0; i < max_size; ++i) {
+        uint32_t a = (i < _digits.size()) ? _digits[i] : 0;
+        uint32_t b = (i >= shift && (i - shift) < other._digits.size())
+                         ? other._digits[i - shift]
+                         : 0;
+
+        // Разбиваем на lo и hi
+        Split32 sa = split(a);
+        Split32 sb = split(b);
+
+        // Складываем младшие части
+        uint32_t lo_sum = sa.lo + sb.lo + carry;
+        carry = (lo_sum >> 16);
+
+        // Складываем старшие части
+        uint32_t hi_sum = sa.hi + sb.hi + carry;
+        carry = (hi_sum >> 16);
+
+        _digits[i] = (hi_sum << 16) | (lo_sum & 0xFFFF);
+    }
+
+    if (carry > 0) {
+        _digits.push_back(carry);
     }
 
     optimise(_digits);
     if (is_zero(_digits)) {
         _sign = true;
     }
-
-    return *this;  // Результат: [8] (знак +)
+    return *this;
 }
 
 big_int &big_int::minus_assign(const big_int &other, size_t shift) & {
@@ -449,18 +463,15 @@ big_int::big_int(pp_allocator<unsigned int> allocator) : _digits(allocator), _si
     _digits.push_back(0);
 }
 
-//Умножение
-big_int &big_int::multiply_assign(const big_int &other, big_int::multiplication_rule rule) & {
-    if (is_zero(_digits)) return *this;
-
+big_int& big_int::multiply_assign(const big_int& other, multiplication_rule rule) & {
+    if (is_zero(_digits)) return *this; // если что-то 0 возвращаем 0
     if (is_zero(other._digits)) {
-        _digits.clear();
-        _digits.push_back(0);
+        _digits = {0};
         _sign = true;
         return *this;
     }
 
-    if (rule == big_int::multiplication_rule::Karatsuba) {
+    if (rule == multiplication_rule::Karatsuba) {
         big_int result = multiply_karatsuba(*this, other);
         _digits = std::move(result._digits);
         _sign = (_sign == other._sign);
@@ -471,26 +482,31 @@ big_int &big_int::multiply_assign(const big_int &other, big_int::multiplication_
     big_int result(_digits.get_allocator());
     result._digits.resize(_digits.size() + other._digits.size(), 0);
 
+    constexpr size_t shift = sizeof(unsigned int) * 4; // для разбиения 16 бит
+    constexpr unsigned int half_mask = (1u << shift) - 1; // младшие 16бит
 
     for (size_t i = 0; i < _digits.size(); ++i) {
-        unsigned long long carry = 0;
-
         for (size_t j = 0; j < other._digits.size(); ++j) {
-            unsigned long long prod = result._digits[i + j] + carry;
-            if (j < other._digits.size()) {
-                prod += static_cast<unsigned long long>(_digits[i]) * other._digits[j];
-            }
+            // Разбиваем цифры на 16-битные половинки
+            const unsigned int a_low = _digits[i] & half_mask; // младшие
+            const unsigned int a_high = _digits[i] >> shift; // сдвиг на 16 -> старшие
+            const unsigned int b_low = other._digits[j] & half_mask;
+            const unsigned int b_high = other._digits[j] >> shift;
 
-            result._digits[i + j] = static_cast<unsigned int>(prod % BASE);
-            carry = prod / BASE;
-        }
+            // произведения
+            const unsigned int a_low_b_low = a_low * b_low;
+            const unsigned int a_low_b_high = a_low * b_high;
+            const unsigned int a_high_b_low = a_high * b_low;
+            const unsigned int a_high_b_high = a_high * b_high;
 
-        size_t j = i + other._digits.size();
-        while (carry) {
-            unsigned long long prod = result._digits[j] + carry;
-            result._digits[j] = static_cast<unsigned int>(prod % BASE);
-            carry = prod / BASE;
-            ++j;
+            // суммируем результаты со смещениями
+            const size_t pos = i + j;
+            result.plus_assign(a_low_b_low, pos);
+            result.plus_assign(a_low_b_high << shift, pos);
+            result.plus_assign(a_low_b_high >> shift, pos + 1);
+            result.plus_assign(a_high_b_low << shift, pos);
+            result.plus_assign(a_high_b_low >> shift, pos + 1);
+            result.plus_assign(a_high_b_high, pos + 1);
         }
     }
 
@@ -520,7 +536,7 @@ big_int &big_int::divide_assign(const big_int &other, big_int::division_rule rul
 
     std::vector<unsigned int, pp_allocator<unsigned int> > quotient(_digits.size(), 0, _digits.get_allocator());
     big_int remain(_digits.get_allocator());
-    //Зачем очищать?
+
     remain._digits.clear();
     remain._digits.push_back(0);
     for (int i = static_cast<int>(_digits.size()) - 1; i >= 0; i--) {
@@ -621,12 +637,12 @@ big_int::division_rule big_int::decide_div(size_t rhs) const noexcept {
 big_int operator""_bi(unsigned long long n) {
     return {n};
 }
+
 //z0 = (x0 * y0)
 //z2 = (x1 * y1)
 //z1 = (x0 + x1)(y0 + y1) - x0*y0 - y0*x0
 // z2 * B**2 + z1 * B + z0
 big_int multiply_karatsuba(const big_int &a, const big_int &b) {
-
     if (a._digits.size() < 32 || b._digits.size() < 32) {
         big_int result = a;
         result.multiply_assign(b, big_int::multiplication_rule::trivial);

@@ -23,10 +23,10 @@ protected:
     friend server_logger_builder;
 
 public:
-    static int os_getpid();
+    static int inner_getpid();
 
 
-    std::string make_format(const std::string &message, severity severity) const;
+    std::string make_format(const std::string &message, severity sev) const;
 
     static flag char_to_flag(char c) noexcept;
 

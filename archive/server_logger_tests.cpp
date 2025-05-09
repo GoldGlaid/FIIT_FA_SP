@@ -10,9 +10,7 @@ int main() {
     std::unique_ptr<logger> log(builder.build());
 
     log->trace("good").debug("debug");
-    log->trace("IT is a very long strange message !!!!!!!!!!%%%%%%%%zdtjhdjh").
-            information("bfldknbpxjxjvpxvjbpzjbpsjbpsjkgbpsejegpsjpegesjpvbejpvjzepvgjs");
-    while (1) {
 
-    }
+    log->trace("IT is a very long strange message !!!!!!!!!!%%%%%%%%\tzdtjhdjh").
+            information("bfldknbpxjxjvpxvjbpzjbpsjbpsjkgbpsejegpsjpegesjpvbejpvjzepvgjs");
 }

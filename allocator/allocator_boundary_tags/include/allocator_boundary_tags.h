@@ -16,12 +16,13 @@ class allocator_boundary_tags final : public smart_mem_resource,
                                       private logger_guardant,
                                       private typename_holder {
 private:
-    /**
-     * TODO: You must improve it for alignment support
-     */
     static constexpr const size_t allocator_metadata_size =
-            sizeof(logger *) + sizeof(memory_resource *) + sizeof(allocator_with_fit_mode::fit_mode) +
-            sizeof(size_t) + sizeof(std::mutex) + sizeof(void *);
+            sizeof(logger *) +
+            sizeof(memory_resource *) +
+            sizeof(allocator_with_fit_mode::fit_mode) +
+            sizeof(size_t) +
+            sizeof(std::mutex) +
+            sizeof(void *);
 
     static constexpr const size_t occupied_block_metadata_size =
             sizeof(size_t) + sizeof(void *) + sizeof(void *) + sizeof(void *);
@@ -48,9 +49,9 @@ private:
 public:
     ~allocator_boundary_tags() override;
 
-    allocator_boundary_tags(allocator_boundary_tags const &other);
+    allocator_boundary_tags(allocator_boundary_tags const &other)=delete;
 
-    allocator_boundary_tags &operator=(allocator_boundary_tags const &other);
+    allocator_boundary_tags &operator=(allocator_boundary_tags const &other)=delete;
 
     allocator_boundary_tags(allocator_boundary_tags &&other) noexcept;
 
@@ -79,7 +80,6 @@ public:
 private:
     std::vector<allocator_test_utils::block_info> get_blocks_info_inner() const override;
 
-    /** TODO: Highly recommended for helper functions to return references */
 
     inline logger *get_logger() const override;
 
