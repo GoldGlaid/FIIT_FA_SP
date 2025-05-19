@@ -643,7 +643,7 @@ big_int operator""_bi(unsigned long long n) {
 //z1 = (x0 + x1)(y0 + y1) - x0*y0 - y0*x0
 // z2 * B**2 + z1 * B + z0
 big_int multiply_karatsuba(const big_int &a, const big_int &b) {
-    if (a._digits.size() < 32 || b._digits.size() < 32) {
+    if (a._digits.size() < 3 || b._digits.size() < 3) {
         big_int result = a;
         result.multiply_assign(b, big_int::multiplication_rule::trivial);
         return result;
